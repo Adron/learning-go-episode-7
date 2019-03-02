@@ -1,32 +1,33 @@
-// We can use channels to synchronize execution
-// across goroutines. Here's an example of using a
-// blocking receive to wait for a goroutine to finish.
+// When using channels as function parameters, you can
+// specify if a channel is meant to only send or receive
+// values. This specificity increases the type-safety of
+// the program.
 
 package main
 
 import "fmt"
-import "time"
 
-// This is the function we'll run in a goroutine. The
-// `done` channel will be used to notify another
-// goroutine that this function's work is done.
-func worker(done chan bool) {
-	fmt.Print("working...")
-	time.Sleep(time.Second * 3)
-	fmt.Println("done")
+// This `ping` function only accepts a channel for sending
+// values. It would be a compile-time error to try to
+// receive on this channel.
+func ping(pings chan<- string, msg string) {
+	pings <- msg
+}
 
-	// Send a value to notify that we're done.
-	done <- true
+// The `pong` function accepts one channel for receives
+// (`pings`) and a second for sends (`pongs`).
+func pong(pings <-chan string, pongs chan<- string) {
+	msg := <-pings
+
+	// Addition processing of some sort!
+
+	pongs <- msg
 }
 
 func main() {
-
-	// Start a worker goroutine, giving it the channel to
-	// notify on.
-	done := make(chan bool, 1)
-	go worker(done)
-
-	// Block until we receive a notification from the
-	// worker on the channel.
-	<-done
+	pings := make(chan string, 1)
+	pongs := make(chan string, 1)
+	ping(pings, "passed message")
+	pong(pings, pongs)
+	fmt.Println(<-pongs)
 }
