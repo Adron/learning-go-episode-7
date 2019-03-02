@@ -1,33 +1,38 @@
-// When using channels as function parameters, you can
-// specify if a channel is meant to only send or receive
-// values. This specificity increases the type-safety of
-// the program.
+// Go's _select_ lets you wait on multiple channel
+// operations. Combining goroutines and channels with
+// select is a powerful feature of Go.
 
 package main
 
+import "time"
 import "fmt"
 
-// This `ping` function only accepts a channel for sending
-// values. It would be a compile-time error to try to
-// receive on this channel.
-func ping(pings chan<- string, msg string) {
-	pings <- msg
-}
-
-// The `pong` function accepts one channel for receives
-// (`pings`) and a second for sends (`pongs`).
-func pong(pings <-chan string, pongs chan<- string) {
-	msg := <-pings
-
-	// Addition processing of some sort!
-
-	pongs <- msg
-}
-
 func main() {
-	pings := make(chan string, 1)
-	pongs := make(chan string, 1)
-	ping(pings, "passed message")
-	pong(pings, pongs)
-	fmt.Println(<-pongs)
+
+	// For our example we'll select across two channels.
+	c1 := make(chan string)
+	c2 := make(chan string)
+
+	// Each channel will receive a value after some amount
+	// of time, to simulate e.g. blocking RPC operations
+	// executing in concurrent goroutines.
+	go func() {
+		time.Sleep(3 * time.Second)
+		c1 <- "one"
+	}()
+	go func() {
+		time.Sleep(2 * time.Second)
+		c2 <- "two"
+	}()
+
+	// We'll use `select` to await both of these values
+	// simultaneously, printing each one as it arrives.
+	for i := 0; i < 2; i++ {
+		select {
+		case msg1 := <-c1:
+			fmt.Println("received", msg1)
+		case msg2 := <-c2:
+			fmt.Println("received", msg2)
+		}
+	}
 }
