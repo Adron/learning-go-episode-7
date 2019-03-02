@@ -1,48 +1,49 @@
-// _Timeouts_ are important for programs that connect to
-// external resources or that otherwise need to bound
-// execution time. Implementing timeouts in Go is easy and
-// elegant thanks to channels and `select`.
+// Basic sends and receives on channels are blocking.
+// However, we can use `select` with a `default` clause to
+// implement _non-blocking_ sends, receives, and even
+// non-blocking multi-way `select`s.
 
 package main
 
-import "time"
 import "fmt"
 
 func main() {
+	messages := make(chan string)
+	signals := make(chan bool)
 
-	// For our example, suppose we're executing an external
-	// call that returns its result on a channel `c1`
-	// after 2s.
-	c1 := make(chan string, 1)
-	go func() {
-		time.Sleep(2 * time.Second)
-		c1 <- "result 1"
-	}()
-
-	// Here's the `select` implementing a timeout.
-	// `res := <-c1` awaits the result and `<-Time.After`
-	// awaits a value to be sent after the timeout of
-	// 1s. Since `select` proceeds with the first
-	// receive that's ready, we'll take the timeout case
-	// if the operation takes more than the allowed 1s.
+	// Here's a non-blocking receive. If a value is
+	// available on `messages` then `select` will take
+	// the `<-messages` `case` with that value. If not
+	// it will immediately take the `default` case.
 	select {
-	case res := <-c1:
-		fmt.Println(res)
-	case <-time.After(1 * time.Second):
-		fmt.Println("timeout 1")
+	case msg := <-messages:
+		fmt.Println("received message", msg)
+	default:
+		fmt.Println("no message received")
 	}
 
-	// If we allow a longer timeout of 3s, then the receive
-	// from `c2` will succeed and we'll print the result.
-	c2 := make(chan string, 1)
-	go func() {
-		time.Sleep(2 * time.Second)
-		c2 <- "result 2"
-	}()
+	// A non-blocking send works similarly. Here `msg`
+	// cannot be sent to the `messages` channel, because
+	// the channel has no buffer and there is no receiver.
+	// Therefore the `default` case is selected.
+	msg := "hi"
 	select {
-	case res := <-c2:
-		fmt.Println(res)
-	case <-time.After(3 * time.Second):
-		fmt.Println("timeout 2")
+	case messages <- msg:
+		fmt.Println("sent message", msg)
+	default:
+		fmt.Println("no message sent")
+	}
+
+	// We can use multiple `case`s above the `default`
+	// clause to implement a multi-way non-blocking
+	// select. Here we attempt non-blocking receives
+	// on both `messages` and `signals`.
+	select {
+	case msg := <-messages:
+		fmt.Println("received message", msg)
+	case sig := <-signals:
+		fmt.Println("received signal", sig)
+	default:
+		fmt.Println("no activity")
 	}
 }
