@@ -1,22 +1,37 @@
+// _Channels_ are the pipes that connect concurrent
+// goroutines. You can send values into channels from one
+// goroutine and receive those values into another
+// goroutine.
+// Example from: https://gobyexample.com/channels
+
 package main
 
-import "fmt"
-
-func sum(s []int, c chan int) {
-	sum := 0
-	for _, v := range s {
-		sum += v
-	}
-	c <- sum // send sum to c
-}
+import (
+	"fmt"
+	"time"
+)
 
 func main() {
-	s := []int{7, 2, 8, -9, 4, 0}
 
-	c := make(chan int)
-	go sum(s[:len(s)/2], c)
-	go sum(s[len(s)/2:], c)
-	x, y := <-c, <-c // receive from c
+	// Create a new channel with `make(chan val-type)`.
+	// Channels are typed by the values they convey.
+	messages := make(chan string)
 
-	fmt.Println(x, y, x+y)
+	// _Send_ a value into a channel using the `channel <-`
+	// syntax. Here we send `"ping"`  to the `messages`
+	// channel we made above, from a new goroutine.
+	go func() {
+		messages <- "ping"
+		time.Sleep(time.Second * 3)
+		fmt.Println("So this occurred, right.")
+	}()
+
+	// The `<-channel` syntax _receives_ a value from the
+	// channel. Here we'll receive the `"ping"` message
+	// we sent above and print it out.
+	msg := <-messages
+
+	fmt.Println(msg)
+
+
 }
