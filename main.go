@@ -22,8 +22,8 @@ func main() {
 	// channel we made above, from a new goroutine.
 	go func() {
 		messages <- "ping"
-		time.Sleep(time.Second * 3)
-		fmt.Println("So this occurred, right.")
+		time.Sleep(time.Second * 2)
+		messages <- "We had our anonymous function complete!"
 	}()
 
 	// The `<-channel` syntax _receives_ a value from the
@@ -32,6 +32,11 @@ func main() {
 	msg := <-messages
 
 	fmt.Println(msg)
+	fmt.Scanln()
 
-
+	// Here time has elapsed and the messages channel has a new
+	// value in it. So we ask to receive the latest message
+	// and print it out.
+	msg = <-messages
+	fmt.Println(msg)
 }
