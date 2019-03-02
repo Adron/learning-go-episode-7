@@ -1,49 +1,50 @@
-// Basic sends and receives on channels are blocking.
-// However, we can use `select` with a `default` clause to
-// implement _non-blocking_ sends, receives, and even
-// non-blocking multi-way `select`s.
+// _Closing_ a channel indicates that no more values
+// will be sent on it. This can be useful to communicate
+// completion to the channel's receivers.
 
 package main
 
 import "fmt"
 
+// In this example we'll use a `jobs` channel to
+// communicate work to be done from the `main()` goroutine
+// to a worker goroutine. When we have no more jobs for
+// the worker we'll `close` the `jobs` channel.
 func main() {
-	messages := make(chan string)
-	signals := make(chan bool)
+	jobs := make(chan int, 5)
+	done := make(chan bool)
 
-	// Here's a non-blocking receive. If a value is
-	// available on `messages` then `select` will take
-	// the `<-messages` `case` with that value. If not
-	// it will immediately take the `default` case.
-	select {
-	case msg := <-messages:
-		fmt.Println("received message", msg)
-	default:
-		fmt.Println("no message received")
-	}
+	// Here's the worker goroutine. It repeatedly receives
+	// from `jobs` with `j, more := <-jobs`. In this
+	// special 2-value form of receive, the `more` value
+	// will be `false` if `jobs` has been `close'd and all
+	// values in the channel have already been received.
+	// We use this to notify on `done` when we've worked
+	// all our jobs.
+	go func() {
+		for {
+			j, more := <-jobs
+			if more {
+				fmt.Println("received job", j)
+			} else {
+				fmt.Println("received all jobs")
+				done <- true
+				return
+			}
+		}
+	}()
 
-	// A non-blocking send works similarly. Here `msg`
-	// cannot be sent to the `messages` channel, because
-	// the channel has no buffer and there is no receiver.
-	// Therefore the `default` case is selected.
-	msg := "hi"
-	select {
-	case messages <- msg:
-		fmt.Println("sent message", msg)
-	default:
-		fmt.Println("no message sent")
+	// This sends 3 jobs to the worker over the `jobs`
+	// channel, then closes it.
+	for j := 1; j <= 3; j++ {
+		jobs <- j
+		fmt.Println("sent job", j)
 	}
+	close(jobs)
+	fmt.Println("sent all jobs")
 
-	// We can use multiple `case`s above the `default`
-	// clause to implement a multi-way non-blocking
-	// select. Here we attempt non-blocking receives
-	// on both `messages` and `signals`.
-	select {
-	case msg := <-messages:
-		fmt.Println("received message", msg)
-	case sig := <-signals:
-		fmt.Println("received signal", sig)
-	default:
-		fmt.Println("no activity")
-	}
+	// We await the worker using the
+	// [synchronization](channel-synchronization) approach
+	// we saw earlier.
+	<-done
 }
